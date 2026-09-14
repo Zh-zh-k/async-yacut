@@ -1,16 +1,11 @@
 import asyncio
 
-from flask import flash, redirect, render_template
+from flask import abort, flash, redirect, render_template
 
-from yacut import app, db
+from yacut import app
 from yacut.disk import upload_files
 from yacut.forms import FileUploadForm, URLMapForm
-from yacut.models import URLMap
-from yacut.utils import get_unique_short_id
-
-DUPLICATED_SHORT_ID_MESSAGE = (
-    'Предложенный вариант короткой ссылки уже существует.'
-)
+from yacut.models import ShortIdAlreadyExistsError, URLMap
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -18,32 +13,19 @@ def index_view():
     form = URLMapForm()
 
     if form.validate_on_submit():
-        custom_id = form.custom_id.data
-
-        if custom_id:
-            if custom_id == 'files' or URLMap.query.filter_by(
-                short=custom_id
-            ).first():
-                flash(DUPLICATED_SHORT_ID_MESSAGE)
-                return render_template('index.html', form=form)
-
-            short_id = custom_id
-        else:
-            short_id = get_unique_short_id()
-
-        url_map = URLMap(
-            original=form.original_link.data,
-            short=short_id
-        )
-        db.session.add(url_map)
-        db.session.commit()
-
-        short_link = f'http://localhost/{short_id}'
+        try:
+            url_map = URLMap.create(
+                original=form.original_link.data,
+                custom_id=form.custom_id.data
+            )
+        except ShortIdAlreadyExistsError as error:
+            flash(str(error))
+            return render_template('index.html', form=form)
 
         return render_template(
             'index.html',
             form=form,
-            short_link=short_link
+            short_link=url_map.get_short_link()
         )
 
     return render_template('index.html', form=form)
@@ -51,7 +33,11 @@ def index_view():
 
 @app.route('/<string:short_id>')
 def redirect_view(short_id):
-    url_map = URLMap.query.filter_by(short=short_id).first_or_404()
+    url_map = URLMap.get_by_short(short_id)
+
+    if url_map is None:
+        abort(404)
+
     return redirect(url_map.original)
 
 
@@ -71,21 +57,14 @@ def files_view():
         )
 
         for filename, download_link in upload_results:
-            short_id = get_unique_short_id()
-
-            url_map = URLMap(
-                original=download_link,
-                short=short_id
+            url_map = URLMap.create(
+                original=download_link
             )
-
-            db.session.add(url_map)
 
             uploaded_files.append({
                 'filename': filename,
-                'short_link': f'http://localhost/{short_id}'
+                'short_link': url_map.get_short_link()
             })
-
-        db.session.commit()
 
     return render_template(
         'files.html',

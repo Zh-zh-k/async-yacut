@@ -1,45 +1,11 @@
-<!DOCTYPE html>
-<html lang="ru">
+{% extends "base.html" %}
 
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+{% block title %}
+  YaCut - загрузка файлов
+{% endblock %}
 
-  <link rel="stylesheet"
-        href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
-
-  <title>YaCut - загрузка файлов</title>
-</head>
-
-<body>
-
-<header class="pb-5">
-  <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top shadow-sm">
-    <div class="container">
-
-      <div class="collapse navbar-collapse">
-        <ul class="nav nav-pills">
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('index_view') }}">
-              Главная
-            </a>
-          </li>
-
-          <li class="nav-item">
-            <a class="nav-link active" href="{{ url_for('files_view') }}">
-              Загрузка файлов
-            </a>
-          </li>
-        </ul>
-      </div>
-
-    </div>
-  </nav>
-</header>
-
-<main>
+{% block content %}
   <section class="container my-5 px-4">
-
     <h1 class="text-center">
       <span style="color:red">Ya</span>Cut
     </h1>
@@ -50,13 +16,10 @@
 
     <div class="container">
       <div class="row my-3">
-
         <div class="col-sm"></div>
 
         <div class="col-sm">
-
           <form method="post" enctype="multipart/form-data">
-
             {{ form.hidden_tag() }}
 
             <div class="mb-3">
@@ -67,25 +30,23 @@
 
               {% for error in form.files.errors %}
                 <p>
-                  <span style="color:red">{{ error }}</span>
+                  <span style="color:red">
+                    {{ error }}
+                  </span>
                 </p>
               {% endfor %}
             </div>
 
             {{ form.submit(class="btn btn-primary") }}
-
           </form>
-
         </div>
 
         <div class="col-sm"></div>
-
       </div>
     </div>
 
     {% if uploaded_files %}
       <div class="container mt-5">
-
         <table class="table">
           <thead>
             <tr>
@@ -97,7 +58,9 @@
           <tbody>
             {% for file in uploaded_files %}
               <tr>
-                <td>{{ file.filename }}</td>
+                <td>
+                  {{ file.filename }}
+                </td>
                 <td>
                   <a href="{{ file.short_link }}">
                     {{ file.short_link }}
@@ -107,16 +70,7 @@
             {% endfor %}
           </tbody>
         </table>
-
       </div>
     {% endif %}
-
   </section>
-</main>
-
-<footer class="fixed-bottom border-top text-center py-3">
-  <p>Укоротитель ссылок YaCut</p>
-</footer>
-
-</body>
-</html>
+{% endblock %}

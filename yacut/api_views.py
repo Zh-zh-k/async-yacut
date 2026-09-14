@@ -1,22 +1,13 @@
-import re
 from http import HTTPStatus
 
 from flask import jsonify, request
 
-from yacut import app, db
+from yacut import app
+from yacut.constants import (EMPTY_REQUEST_MESSAGE, ID_NOT_FOUND_MESSAGE,
+                             INVALID_SHORT_ID_MESSAGE, MISSING_URL_MESSAGE,
+                             SHORT_ID_MAX_LENGTH, SHORT_ID_PATTERN)
 from yacut.error_handlers import InvalidAPIUsage
-from yacut.models import URLMap
-from yacut.utils import get_unique_short_id
-
-SHORT_ID_PATTERN = re.compile(r'^[A-Za-z0-9]+$')
-
-DUPLICATED_SHORT_ID_MESSAGE = (
-    'Предложенный вариант короткой ссылки уже существует.'
-)
-
-INVALID_SHORT_ID_MESSAGE = (
-    'Указано недопустимое имя для короткой ссылки'
-)
+from yacut.models import ShortIdAlreadyExistsError, URLMap
 
 
 @app.route('/api/id/', methods=['POST'])
@@ -25,63 +16,48 @@ def create_short_link():
 
     if data is None:
         raise InvalidAPIUsage(
-            'Отсутствует тело запроса',
+            EMPTY_REQUEST_MESSAGE,
             HTTPStatus.BAD_REQUEST
         )
 
     if 'url' not in data:
         raise InvalidAPIUsage(
-            '"url" является обязательным полем!',
+            MISSING_URL_MESSAGE,
             HTTPStatus.BAD_REQUEST
         )
 
     custom_id = data.get('custom_id')
 
-    if custom_id:
-        if (
-            len(custom_id) > 16
-            or not SHORT_ID_PATTERN.fullmatch(custom_id)
-        ):
-            raise InvalidAPIUsage(
-                INVALID_SHORT_ID_MESSAGE,
-                HTTPStatus.BAD_REQUEST
-            )
+    if custom_id and (
+        len(custom_id) > SHORT_ID_MAX_LENGTH
+        or not SHORT_ID_PATTERN.fullmatch(custom_id)
+    ):
+        raise InvalidAPIUsage(
+            INVALID_SHORT_ID_MESSAGE,
+            HTTPStatus.BAD_REQUEST
+        )
 
-        if (
-            custom_id == 'files'
-            or URLMap.query.filter_by(short=custom_id).first()
-        ):
-            raise InvalidAPIUsage(
-                DUPLICATED_SHORT_ID_MESSAGE,
-                HTTPStatus.BAD_REQUEST
-            )
+    try:
+        url_map = URLMap.create(
+            original=data['url'],
+            custom_id=custom_id
+        )
+    except ShortIdAlreadyExistsError as error:
+        raise InvalidAPIUsage(
+            str(error),
+            HTTPStatus.BAD_REQUEST
+        )
 
-        short_id = custom_id
-
-    else:
-        short_id = get_unique_short_id()
-
-    url_map = URLMap(
-        original=data['url'],
-        short=short_id
-    )
-
-    db.session.add(url_map)
-    db.session.commit()
-
-    return jsonify({
-        'url': url_map.original,
-        'short_link': f'http://localhost/{url_map.short}'
-    }), HTTPStatus.CREATED
+    return jsonify(url_map.to_dict()), HTTPStatus.CREATED
 
 
 @app.route('/api/id/<string:short_id>/', methods=['GET'])
 def get_original_link(short_id):
-    url_map = URLMap.query.filter_by(short=short_id).first()
+    url_map = URLMap.get_by_short(short_id)
 
     if url_map is None:
         raise InvalidAPIUsage(
-            'Указанный id не найден',
+            ID_NOT_FOUND_MESSAGE,
             HTTPStatus.NOT_FOUND
         )
 

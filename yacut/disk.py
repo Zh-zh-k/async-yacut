@@ -4,15 +4,7 @@ from urllib.parse import unquote
 import aiohttp
 from flask import current_app
 
-API_HOST = 'https://cloud-api.yandex.net/'
-API_VERSION = 'v1'
-
-REQUEST_UPLOAD_URL = (
-    f'{API_HOST}{API_VERSION}/disk/resources/upload'
-)
-DOWNLOAD_LINK_URL = (
-    f'{API_HOST}{API_VERSION}/disk/resources/download'
-)
+from yacut.constants import DOWNLOAD_LINK_URL, REQUEST_UPLOAD_URL
 
 
 def get_headers():
